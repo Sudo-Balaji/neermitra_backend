@@ -3,6 +3,7 @@ package com.neermitra.neermitra_backend.controller;
 import com.neermitra.neermitra_backend.dto.ApiResponse;
 import com.neermitra.neermitra_backend.dto.CustomerSignupRequest;
 import com.neermitra.neermitra_backend.entity.User;
+import com.neermitra.neermitra_backend.security.JwtUtil;
 import com.neermitra.neermitra_backend.service.CustomerSignupService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.neermitra.neermitra_backend.dto.LoginRequest;
+import com.neermitra.neermitra_backend.dto.LoginResponse;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+
+
+
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
@@ -23,10 +33,15 @@ public class AuthController {
 
 	
     private final CustomerSignupService customerSignupService;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
+
     
 
-    public AuthController(CustomerSignupService customerSignupService) {
+    public AuthController(CustomerSignupService customerSignupService, AuthenticationManager authenticationManager, JwtUtil jwtUtil) {
         this.customerSignupService = customerSignupService;
+        this.authenticationManager = authenticationManager;
+        this.jwtUtil = jwtUtil;
     }
 
     @PostMapping("/customer/signup")
@@ -51,6 +66,56 @@ public class AuthController {
             log.trace("Exiting customerSignup endpoint");
         }
     }
+    
+    @PostMapping("/customer/login")
+    public ResponseEntity<ApiResponse<LoginResponse>> customerLogin(@Valid @RequestBody LoginRequest request) {
+
+        log.trace("Entering customerLogin endpoint");
+        log.info("Customer login attempt for phone {}", maskPhone(request.getPhone()));
+
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getPhone(),
+                            request.getPassword()
+                    )
+            );
+
+            // If we reach here, authentication is successful
+            org.springframework.security.core.userdetails.User principal =
+                    (org.springframework.security.core.userdetails.User) authentication.getPrincipal();
+
+            // Generate JWT using the phone (subject)
+            String token = jwtUtil.generateToken(principal.getUsername());
+
+            // Optionally load full User entity to send basic info
+            User user = customerSignupService.findByPhone(principal.getUsername());
+
+            LoginResponse loginResponse = new LoginResponse(
+                    token,
+                    user.getId(),
+                    user.getName(),
+                    user.getPhone(),
+                    user.getEmail(),
+                    user.getRole().name()
+            );
+
+            ApiResponse<LoginResponse> response =
+                    new ApiResponse<>(true, "Login successful", loginResponse);
+
+            log.info("Customer login successful for phone {}", maskPhone(request.getPhone()));
+            log.trace("Exiting customerLogin endpoint");
+            return ResponseEntity.ok(response);
+
+        } catch (BadCredentialsException ex) {
+            log.warn("Invalid credentials for phone {}", maskPhone(request.getPhone()));
+            ApiResponse<LoginResponse> response =
+                    new ApiResponse<>(false, "Invalid phone or password", null);
+            return ResponseEntity.status(401).body(response);
+        }
+    }
+
+
 
     private String maskPhone(String phone) {
         if (phone == null || phone.length() < 4) {

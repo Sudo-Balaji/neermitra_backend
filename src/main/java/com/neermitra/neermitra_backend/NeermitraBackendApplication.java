@@ -13,3 +13,10 @@ public class NeermitraBackendApplication {
 	}
 
 }
+
+
+/*
+ * AuthController → AuthenticationManager (Spring Security) →
+ * CustomUserDetailsService → JWT ↓ (just reads user for response)
+ * CustomerSignupService.findByPhone() ← helper method only
+ */
