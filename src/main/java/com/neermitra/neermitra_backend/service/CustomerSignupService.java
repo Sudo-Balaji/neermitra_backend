@@ -53,4 +53,26 @@ public class CustomerSignupService {
         log.trace("CustomerSignupService.signup completed");
         return savedUser;
     }
+    
+    
+    
+	/*
+	 * BELOW IS Login Transacation for login service
+	 * Why NO separate LoginService? (Smart design choice)
+	 * Reason: Authentication is NOT business logic
+	 */
+
+    @Transactional(readOnly = true)
+    public User findByPhone(String phone) {
+        return userRepository.findByPhone(phone)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with phone: " + phone));
+    }
+
+    
+    
+    
+    
+    
+    
+    
 }

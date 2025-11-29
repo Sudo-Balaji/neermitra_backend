@@ -3,10 +3,6 @@ package com.neermitra.neermitra_backend.dto;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
-
-
-
-
 @Data
 public class CustomerSignupRequest {
 
